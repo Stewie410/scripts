@@ -3,9 +3,7 @@
 # Display network/radio status icons
 #
 # Requires:
-#   - Font Awesome
-#   - systemctl
-#       - bluetooth.service
+#   - systemctl -> bluetooth.service
 #   - setsid
 #   - bluetoothctl
 #   - ip
@@ -40,18 +38,14 @@ is_bt_enabled() {
 }
 
 get_devices() {
-    ip route | awk '
-        /scope/ {
-            print $3
-        }
-    '
+    ip route | awk '/scope/ !seen[$3]++ { print $3 }'
 }
 
 get_device_icons() {
     get_devices | sed '
-        s/^e.*//I
-        s/^w.*//I
-        s/^t.*//I
+        s/^e.*/󰛳/I
+        s/^w.*/󰖩/I
+        s/^t.*/󱠾/I
     '
     is_bt_enabled && printf '\n'
 }
