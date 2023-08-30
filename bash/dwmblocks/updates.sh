@@ -3,7 +3,6 @@
 # Get count of available package updates
 #
 # Requires:
-#   - Font Awesome
 #   - Aura (Pacman)
 
 show_help() {
@@ -32,16 +31,16 @@ is_offline() {
         grep --quiet --ignore-case 'unreachable'
 }
 
-get_aur() {
-    aura --aursync --delmakedeps --dryrun | \
-        awk '!seen[$1]++' | \
-        wc --lines
+ucount() {
+    awk '!seen[$1]++' | wc --lines
 }
 
-get_repo() {
-    aura --query --quiet --upgrades | \
-        awk '!seen[$1]++' | \
-        wc --lines
+aur() {
+    aura --aursync --delmakedeps --dryrun | ucount
+}
+
+official() {
+    aura --query --quiet --upgrades | ucount
 }
 
 main() {
@@ -54,7 +53,7 @@ main() {
     is_running && return 1
     is_offline && return 1
 
-    printf ' %d | %d' "$(get_repo)" "$(get_aur)"
+    printf '󰚰 %d | %d' "$(aur)" "$(official)"
 }
 
 main "${@}"
