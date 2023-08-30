@@ -78,11 +78,6 @@ main() {
 
     require 'spotify' 'playerctl' || return 1
 
-    if ! is_spotify_running; then
-        printf ' '
-        return 1
-    fi
-
     click_event "${BLOCK_BUTTON}"
 
     get_info | \
