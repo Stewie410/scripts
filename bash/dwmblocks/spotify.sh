@@ -84,7 +84,6 @@ main() {
     fi
 
     click_event "${BLOCK_BUTTON}"
-    printf ' %s %s' "$(sp_status)" "$(sp_info)"
 
     get_info | \
         fmt_info | \
