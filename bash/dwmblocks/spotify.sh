@@ -3,7 +3,6 @@
 # Display currently-playing song information from Spotify
 #
 # Requires:
-#   - Font Awesome
 #   - spotify
 #   - playerctl
 
@@ -33,21 +32,33 @@ require() {
 }
 
 is_spotify_running() {
-    pgrep 'spotify' &>/dev/null
+    pidof 'spotify' &>/dev/null
 }
 
 sp_cmd() {
     playerctl --player='spotify' "${@}"
 }
 
-sp_status() {
-    sp_cmd status --format '{{ lc(status) }}' | \
-        sed 's/playing//;s/paused//;s/stopped//'
+get_info() {
+    printf '\n'
+
+    if ! is_spotify_running; then
+        printf 'closed\n'
+        return
+    fi
+
+    sp_cmd status --format '{{ lc(status) }}'
+    sp_cmd metadata --format '{{ title }} - {{ artist }}'
 }
 
-sp_info() {
-    sp_cmd metadata --format '{{ title }} - {{ artist }}' | \
-        sed 's/^[Aa]dvertisement - [Aa]d/#Ad;s/^\s*-\s*$//'
+fmt_info() {
+    sed '
+        s/^playing$//I
+        s/^paused$//I
+        s/^stopped$//I
+        s/^closed$//I
+        s/^advertisement - Ad.*$/ Ad/I
+    '
 }
 
 click_event() {
@@ -74,6 +85,11 @@ main() {
 
     click_event "${BLOCK_BUTTON}"
     printf ' %s %s' "$(sp_status)" "$(sp_info)"
+
+    get_info | \
+        fmt_info | \
+        paste --serial --delimiters=" " | \
+        tr --delete '\n'
 }
 
 main "${@}"
