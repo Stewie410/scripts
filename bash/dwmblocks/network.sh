@@ -33,7 +33,12 @@ require() {
     return "${err:-0}"
 }
 
+bt_exists() {
+    systemctl list-unit-files bluetooth.service &>/dev/null
+}
+
 is_bt_enabled() {
+    bt_exists || return 1
     systemctl --quiet is-active bluetooth &>/dev/null
 }
 
@@ -41,8 +46,8 @@ get_devices() {
     ip route | awk '/scope/ !seen[$3]++ { print $3 }'
 }
 
-get_device_icons() {
-    get_devices | sed '
+get_icons() {
+    sed '
         s/^e.*/󰛳/I
         s/^w.*/󰖩/I
         s/^t.*/󱠾/I
@@ -79,10 +84,12 @@ main() {
 
     require 'systemctl' 'setsid' 'bluetoothctl' 'ip' || return
 
-    click_event "${BLOCK_BUTTON}" || return
-    get_device_icons | \
+    click_event "${BLOCK_BUTTON}"
+
+    get_devices | \
+        get_icons | \
         paste --serial --delimiter=" " | \
-        tr -d '\n'
+        tr --delete '\n'
 }
 
 main "${@}"
