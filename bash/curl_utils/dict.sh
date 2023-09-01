@@ -19,7 +19,7 @@ is_offline() {
 }
 
 encode() {
-    "${PWD}/curl_encode.sh" <<< "${1}"
+    "${0%/*}/convert/urlencode.sh" <<< "${1}"
 }
 
 main() {
