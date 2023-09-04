@@ -18,6 +18,12 @@ OPTIONS:
 EOF
 }
 
+require() {
+    command -v "${1}" &>/dev/null && return 0
+    printf 'Missing required application: %s\n' "${1}" >&2
+    return 1
+}
+
 selector() {
     set -- '/dev/stdin'
     case "${selector}" in
