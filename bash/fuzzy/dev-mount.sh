@@ -216,6 +216,8 @@ main() {
         -- "${@}" \
     )"
 
+    selector="fzf"
+
     eval set -- "${opts}"
     while true; do
         case "${1}" in
