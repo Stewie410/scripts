@@ -21,6 +21,8 @@ Heavily inspired by:
     - https://www.reddit.com/r/windows/comments/16ewnpq/script_quickly_change_power_plan_with_1_press_of/
 #>
 
+using namespace System.Management.Automation.Host
+
 [CmdletBinding(DefaultParameterSetName = 'Default')]
 param (
     [Parameter(Mandatory, ParameterSetName = 'ByName')]
@@ -71,18 +73,16 @@ function Get-SchemeChoice {
 
     $choices = @()
 
-    foreach ($name in $list.Name) {
-        $choices += @(
-            [System.Management.Automation.Host.ChoiceDescription]::new(
-                '&' + $name,
-                $name
-            )
-        )
+    for ($i = 0; $i -lt $list.Count; $i++) {
+        $choices += @([ChoiceDescription]::new(
+            '&' + $i + ' ' + $list[$i].Name,
+            $list[$i].Name
+        ))
     }
 
     $result = $HOST.UI.PromptForChoice(
         "Power Plan",
-        "Select power plan to apply:"
+        "Select power plan to apply:",
         $choices,
         -1
     )
