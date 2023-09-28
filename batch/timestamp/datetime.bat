@@ -1,0 +1,1 @@
+@echo(%date:~10,2%-%date:~7,2%-%date:~4,2%T%time%
