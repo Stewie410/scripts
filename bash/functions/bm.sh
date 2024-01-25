@@ -2,29 +2,6 @@
 #
 # CD, but with bookmarks/aliases
 
-main() {
-    local opts
-    opts="$(getopt \
-        --options h \
-        --longoptions help \
-        --name "${0##*/}" \
-        -- "${@}" \
-    )"
-
-    eval set -- "${opts}"
-    while true; do
-        case "${1}" in
-            -h | --help )       show_help; return 0;;
-            -- )                shift; break;;
-            * )                 break;;
-        esac
-        shift
-    done
-
-    mkdir --parents "${log%/*}"
-    touch -a "${log}"
-}
-
 bm() {
     local -A defaults settings config
     local opts bm_path
