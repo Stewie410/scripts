@@ -3,147 +3,100 @@
 # CD, but with bookmarks/aliases
 
 bm() {
-    local -A defaults settings config
-    local opts bm_path
+    _show_help() {
+        cat << EOF
+CD, but with directory bookmarks/aliases
+
+USAGE: ${FUNCNAME[1]} [OPTIONS] [COMMAND] BOOKMARK
+
+OPTIONS:
+    -h, --help              Show this help message
+    -c, --config PATH       Use PATH as config (default: ${default_cfg})
+
+COMMANDS:
+    [cd, nav]               cd to MARK (default command)
+    edit                    Open config file in \$EDITOR (default: editor)
+    ls, list, print         Print bookmarks to stdout
+    rm, rem, del            Remove MARK
+    set, add, update PATH   Set MARK as PATH
+EOF
+    }
+
+    _defined() {
+        [[ -n "${marks["$1"]}" ]] && return 0
+        printf 'Mark is not defined: %s\n' "${1}" >&2
+        return 1
+    }
+
+    _resolve() {
+        realpath "${1}" && [[ -e "${1}" ]] && return 0
+        printf 'Cannot parse path: %s\n' "${1}" >&2
+        return 1
+    }
+
+    _parse() {
+        local k v
+        while read -r k _ v; do
+            [[ "${k}" =~ ^\s*(#.+)?$ ]] && continue
+            marks["${k}"]="${v% #*}"
+        done < "${config}"
+    }
+
+    _print() {
+        local k
+        for k in "${!marks[@]}"; do
+            printf '%s = %s\n' "${k}" "${marks["$k"]}"
+        done
+    }
+
+    local -A marks
+    local opts default_cfg config
     opts="$(getopt \
-        --options hea:dlc:u: \
-        --longoptions help,edit,add:,delete,list,config:,update: \
+        --options hc: \
+        --longoptions help,config: \
         --name "${FUNCNAME[0]}" \
         -- "${@}" \
     )"
 
-    _show_help() {
-        cat << EOF
-CD, but with bookmarks/aliases
-
-USAGE: ${FUNCNAME[1]} [OPTIONS] BOOKMARK
-
-OPTIONS:
-    -h, --help          Show this help message
-    -e, --edit          Edit the configuration file (\$EDITOR or vi)
-    -a, --add PATH      Add PATH as BOOKMARK
-    -u, --update PATH   Set BOOKMARK as PATH
-    -d, --delete        Remove BOOKMARK from configuration
-    -l, --list          List existing bookmarks, filter by BOOKMARK if specified (regex)
-    -c, --config PATH   Use PATH as config (default: '${defaults[config]}')
-EOF
-    }
-
-    _init_defaults() {
-        local i
-
-        defaults['config']="${XDG_CONFIG_HOME:-${HOME}/.config}"
-        defaults['config']+="/bookmarks/bm.rc"
-        defaults['action']="cd"
-
-        for i in "${!defaults[@]}"; do
-            settings["${i}"]="${defaults["$i"]}"
-        done
-    }
-
-    _parse_config() {
-        local -a lines
-        local i
-
-        mapfile -t lines < "${settings['config']}"
-
-        for i in "${lines[@]}"; do
-            config["${i%% = *}"]="${i#* = }"
-        done
-    }
-
-    _add() {
-        if [[ -n "${config["${1}"]}" ]]; then
-            printf 'Bookmark is already defined\n' >&2
-            return 1
-        fi
-        printf '%s = %s\n' \
-            "${1}" "${settings['path']}" >> "${settings['config']}"
-    }
-
-    _remove() {
-        if [[ -z "${config["${1}"]}" ]]; then
-            printf 'Bookmark is not defined\n' >&2
-            return 1
-        fi
-        sed --in-place "/^${1} = /d" "${settings['config']}"
-    }
-
-    _list() {
-        sed --quiet "/${1}/p" "${settings['config']}"
-    }
-
-    _update() {
-        remove "${1}" && add "${1}"
-    }
-
-    _edit() {
-        "${EDITOR:-$(command -v 'vi')}" "${settings['config']}"
-    }
-
-    _init_config() {
-        [[ "${settings['config']%/*}" != "${settings['config']}" ]] && \
-            mkdir --parents "${settings['config']%/*}"
-        touch -a "${settings['config']}"
-    }
-
-    _init_defaults
+    default_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/bookmarks/bm.rc"
+    config="${default_cfg}"
 
     eval set -- "${opts}"
     while true; do
         case "${1}" in
-            -h | --help )       show_help; return 1;;
-            -d | --delete )     settings['action']="remove";;
-            -l | --list )       settings['action']="list";;
-            -c | --config )     settings['config']="${2}"; shift;;
-            -e | --edit )       settings['action']="edit";;
-            -a | --add )
-                settings['action']="add"
-                settings['path']="${2}"
-                shift
-                ;;
-            -u | --update )
-                settings['action']="update"
-                settings['path']="${2}"
-                shift
-                ;;
+            -h | --help )       _show_help; return 0;;
+            -c | --config )     config="$(_resolve "${2}")" || return 1; shift;;
             -- )                shift; break;;
             * )                 break;;
         esac
         shift
     done
 
-    if ! [[ "${settings['action']}" =~ (list|edit) ]]; then
-        if [[ -z "${1}" ]]; then
-            printf 'No bookmark specified\n' >&2
-            return 1
-        fi
-    fi
+    mkdir --parents "${config%/*}"
+    touch -a "${config}"
+    [[ -s "${config}" ]] && _parse
 
-    _init_config
-    _parse_config
-
-    if [[ -n "${settings['path']}" ]]; then
-        settings['path']="$(realpath "${settings['path']}")" || return 1
-        if [[ -f "${settings['path']}" ]]; then
-            printf 'Path must be a directory: %s\n' "${settings['path']}" >&2
-            return 1
-        fi
-    fi
-
-    case "${settings['action']}" in
-        add )       _add "${*}" || return 1;;
-        remove )    _remove "${*}" || return 1;;
-        list )      _list "${*:-.*}" || return 1;;
-        update )    _update "${*}" || return 1;;
-        edit )      _edit || return 1;;
-        cd )
-            if [[ -z "${config["${*}"]}" ]]; then
-                printf 'Bookmark is not defined: %s\n' "${*}" >&2
-                return 1
-            fi
-
-            cd "${config["${*}"]}" || return 1
+    case "${1,,}" in
+        edit )
+            "${EDITOR:-editor}" "${config}" || return 1
+            ;;
+        ls | list | print )
+            _print
+            ;;
+        rm | rem | del )
+            _defined "${2}" || return 1
+            unset "marks[${2}]"
+            _print > "${config}"
+            ;;
+        set | add | update )
+            _defined "${3}" || return 1
+            marks["${3}"]="$(_resolve "${2}")" || return 1
+            _print > "${config}"
+            ;;
+        * )
+            [[ "${1}" =~ ^(cd|nav)$ ]] && set -- "${2}"
+            _defined "${1}" || return 1
+            cd "${marks["$1"]}" || return 1
             ;;
     esac
 
