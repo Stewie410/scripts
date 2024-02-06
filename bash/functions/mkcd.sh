@@ -3,8 +3,31 @@
 # Make and change directory
 
 mkcd() {
-    local -A defaults settings
-    local opts
+    _show_help() {
+        cat << EOF
+Make and change directory
+
+USAGE: ${FUNCNAME[1]} [OPTIONS] PATH
+
+OPTIONS:
+    -h, --help          Show this help message
+    -d, --date DATE     Make and change to DATE's working directory
+    -w, --working PATH  Use PATH as working directory parent
+                        Default: \$WORKING_DIR or \$HOME/working
+EOF
+    }
+
+    _fdate() {
+        date --date="${1}" --iso-8601
+    }
+
+    _resolve() {
+        realpath "${1}" && return 0
+        printf 'Cannot resolve path: %s\n' "${1}" >&2
+        return 1
+    }
+
+    local opts date working
     opts="$(getopt \
         --options hd:w: \
         --longoptions help,date:,working: \
@@ -12,68 +35,21 @@ mkcd() {
         -- "${@}" \
     )"
 
-    _show_help() {
-        cat << EOF
-Make and change directory
-
-USAGE: ${FUNCNAME[1]} [OPTIONS] DIR [SUBDIR [...]]
-
-OPTIONS:
-    -h, --help          Show this help message
-    -d, --date DATE     Make and change to DATE's working directory
-                        See date(1) for valid formats
-    -w, --working PATH  Use PATH as working directory parent
-                        (default: ${defaults['working']})
-EOF
-    }
-
-    _is_valid_format() {
-        date --date="${1}" &>/dev/null
-    }
-
-    defaults['working']="${WORKING_DIR:-${HOME}/working}"
-    settings['working']="${defaults['working']}"
+    working="${WORKING_DIR:-$HOME/working}"
 
     eval set -- "${opts}"
     while true; do
         case "${1}" in
-            -h | --help )       show_help; return 0;;
-            -d | --date )       settings['date']="${2}"; shift;;
-            -w | --working )    settings['working']="${2}"; shift;;
+            -h | --help )       _show_help; return 0;;
+            -d | --date )       date="$(_fdate "${2}")" || return 1; shift;;
+            -w | --working )    working="$(_resolve "${2}")" || return 1; shift;;
             -- )                shift; break;;
             * )                 break;;
         esac
         shift
     done
 
-    settings['working']="$(realpath "${settings['working']}")" || return 1
-
-    if [[ -n "${settings['date']}" ]]; then
-        if ! _is_valid_format "${settings['date']}"; then
-            printf 'Invalid date format: %s\n' "${settings['date']}" >&2
-            return 1
-        fi
-        settings['working']+="/$(date --date="${settings['date']}" --iso-8601)"
-        set -- "${settings['working']}"
-    fi
-
-    while (( $# > 0 )); do
-        mkdir --parents "${1}"
-        cd "${1}" || return 1
-        shift
-    done
-
-    return 0
-}
-
-mdot() {
-    mkcd --date 'today'
-}
-
-mdoy() {
-    mkcd --date 'yesterday'
-}
-
-mdod() {
-    mkcd --date "${1}"
+    [[ -n "${date}" ]] && set -- "${working}/${date}"
+    mkdir --parents "${1}" || return 1
+    cd "${1}" || return 1
 }
