@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-#
-# kArEnIfY a file
 
 show_help() {
     cat << EOF
 kArEnIfY a file
 
-USAGE: ${0##*/} [OPTIONS] FILE
+USAGE: ${0##*/} [OPTIONS] FILE [...]
+       ${0##*/} [OPTIONS] < FILE
 
 OPTIONS:
     -h, --help      Show this help message
@@ -14,49 +13,50 @@ OPTIONS:
 EOF
 }
 
-recase() {
-    local i line new char last
+# init, file [...]
+karen() {
+    local case
+    case="${1}"
+    shift
 
-    while IFS='' read -r line; do
-        unset new
-
-        if ! [[ "${line,,}" =~ [a-z] ]]; then
-            printf '%s\n' "${line}"
-            continue
-        fi
-
-        for ((i = 0; i < ${#line}; i++)); do
-            char="${line:$i:1}"
-            if [[ "${char}" =~ [a-zA-Z] ]]; then
-                if [[ -z "${last}" ]]; then
-                    char="${char,,}"
-                    [[ -n "${invert}" ]] && char="${char^^}"
-                else
-                    char="${char,,}"
-                    [[ "${last}" =~ [a-z] ]] && char="${char^^}"
-                fi
-                last="${char}"
+    local line
+    while (( $# > 0 )); do
+        while IFS='' read -r line; do
+            if [[ "${line}" != *[[:alpha:]]* ]]; then
+                printf '%s\n' "${line}"
+                continue
             fi
-            new+="${char}"
-        done
 
-        printf '%s\n' "${new}"
-    done < "${1}"
+            local out i char
+            out=""
+            for (( i = 0; i < ${#line}; i++ )); do
+                char="${line:i:1}"
+                if [[ "${char}" == [[:alpha:]] ]]; then
+                    case "${case}" in
+                        0 ) char="${char,}";;
+                        1 ) char="${char^}";;
+                    esac
+                    (( case = !case ))
+                fi
+                out+="${char}"
+            done
+            printf '%s\n' "${out}"
+        done < "${1}"
+        shift
+    done
 }
 
 main() {
-    local invert
-    if [[ "${1}" =~ -(h|-help) ]]; then
-        show_help
-        return 0
-    elif [[ "${1}" =~ -(i|-invert) ]]; then
-        invert="1"
-        shift
-    fi
+    local first
+    first="0"
 
-    [[ -z "${1}" ]] && set -- '/dev/stdin'
+    case "${1}" in
+        -h | --help )   show_help; return 0;;
+        -i | --invert ) first="1"; shift;;
+    esac
 
-    recase "${1}"
+    (( $# == 0 )) && set -- "/dev/stdin"
+    karen "${first}" "${@}"
 }
 
 main "${@}"
